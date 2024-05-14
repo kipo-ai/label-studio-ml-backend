@@ -5,7 +5,7 @@ from collections import defaultdict
 import json
 import random
 import requests
-from table_labeller.model import NewModel
+from table_labeller.model import TableModel
 
 
 def read_json(file_path):
@@ -55,7 +55,7 @@ def request_interactive_annotation(api_url, backend_id, token, task_id, context=
 
 def get_results_from_local(url, task):
 
-    m = NewModel()
+    m = TableModel()
     
     respose = m.predict([task])
 

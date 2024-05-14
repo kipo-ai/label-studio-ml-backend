@@ -27,13 +27,10 @@ class TableCategory(Enum):
     UNKNOWN = "unknown"
     DIMENSIONAL = "dimensional_table"
 
+
 class NewModel(LabelStudioMLBase):
     """Custom ML Backend model
     """
-    
-    def __init__(self, **kwargs):
-        """Initialize the model
-        """
 
     def setup(self):
         """Configure any parameters of your model here
@@ -140,4 +137,10 @@ class NewModel(LabelStudioMLBase):
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
 
+        pass
+
+
+class TableModel(NewModel):
+
+    def __init__(self):
         pass
