@@ -5,10 +5,15 @@ import os
 from typing import Any, List, Dict, Optional, Tuple, Union
 import uuid
 
+import sys
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.insert(0, project_root)
+
 from dotenv import load_dotenv
-from constants.LLMConstants import GPT3
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
+from constants.LLMConstants import GPT3
 from utils.openai_utils import json_check_wrapped_call_gpt
 
 
@@ -26,6 +31,10 @@ class NewModel(LabelStudioMLBase):
     """Custom ML Backend model
     """
     
+    def __init__(self, **kwargs):
+        """Initialize the model
+        """
+
     def setup(self):
         """Configure any parameters of your model here
         """
@@ -40,12 +49,17 @@ class NewModel(LabelStudioMLBase):
             "Please classify the following table from a technical datasheet of electronic components. "
             "Each table can be categorized based on specific characteristics and content. The categories are:\n\n"
             "- table_of_contents: Lists the sections and their respective page numbers; typically non-technical.\n"
+            "Table of contents usually have section, subsections with corresponding numbers and page numbers.\n\n"
             "- pin_table: Contains details such as pin numbers, functions, and descriptions; crucial for hardware design.\n"
+            "Pin tables usually contains information about pins. With headers like Pin number, name, description etc.\n"
+            "Pin is also represented as Terminal, Signal or Ball. Pin Number follows this regex: '^[a-zA-Z]{0,2}[0-9]{1,2},?$'\n\n"
             "- pin_map: Provides a graphical or schematic representation of pin layouts; usually accompanied by diagrams.\n"
-            "- specs_table: Outlines technical specifications like voltage, current, dimensions, and operating parameters.\n"
-            "- package_information_table: Includes details about the physical packaging of the component like size, pin count, and form factor.\n"
-            "- not_a_valid_table: The content does not represent a structured table; may include random text or images.\n"
-            "- dimensional_table: Contains measurements, dimensions, and tolerances; essential for mechanical design.\n"
+            "Pin maps usually contains pin names only with Pin Number as headers.\n"
+            "Pin number 'alphabet (^[a-zA-Z])' and 'digits( {0,2}[0-9]{1,2},?$)' are orthogonal headers. Sometimes they are not present in the table.\n\n"
+            "- specs_table: Outlines technical specifications like voltage, current, dimensions, and operating parameters.\n\n"
+            "- package_information_table: Includes details about the physical packaging of the component like size, pin count, and form factor.\n\n"
+            "- not_a_valid_table: The content does not represent a structured table; may include random text or images.\n\n"
+            "- dimensional_table: Contains measurements, dimensions, and tolerances; essential for mechanical design.\n\n"
             "- unknown: The content of the table is unclear, unspecified, or not sufficiently detailed to categorize accurately.\n\n"
             "Here is the markdown content of a table:\n"
             f"{markdown_table}\n\n"
@@ -127,25 +141,3 @@ class NewModel(LabelStudioMLBase):
         """
 
         pass
-
-
-
-
-
-
-#http://localhost:8080/api/projects/12/export?exportType=JSON&download_all_tasks=true
-"""
-curl -X POST "http://localhost:8080/api/predictions/" \
-     -H "Authorization: Token 782ba8a7e729c9e106bf3ae69b0c217daad7103e" \
-     -H "Content-Type: application/json" \
-     -d '{
-           "model_version": "string",
-           "result": [{"from_name":"sentiment","id":"df155d8b-b239-4138-ac64-778c0ace4e7e","to_name":"text","type":"choices","value":{"choices":["unkown"]}}],
-           "score": 0,
-           "cluster": 0,
-           "neighbors": {},
-           "mislabeling": 0,
-           "task": 62284,
-           "project": 12
-         }'
-"""
