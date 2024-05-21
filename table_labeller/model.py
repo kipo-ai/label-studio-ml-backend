@@ -42,35 +42,148 @@ class NewModel(LabelStudioMLBase):
         """
         Generates a prompt for classifying the table from technical datasheets.
         """
-        return (
-            "Please classify the following table from a technical datasheet of electronic components. "
-            "Each table can be categorized based on specific characteristics and content. The categories are:\n\n"
-            "- table_of_contents: Lists the sections and their respective page numbers; typically non-technical.\n"
-            "Table of contents usually have section, subsections with corresponding numbers and page numbers.\n\n"
-            "- pin_table: Contains details such as pin numbers, functions, and descriptions; crucial for hardware design.\n"
-            "Pin tables usually contains information about pins. With headers like Pin number, name, description etc.\n"
-            "Pin is also represented as Terminal, Signal or Ball. Pin Number follows this regex: '^[a-zA-Z]{0,2}[0-9]{1,2},?$'\n\n"
-            "- pin_map: Provides a graphical or schematic representation of pin layouts; usually accompanied by diagrams.\n"
-            "Pin maps usually contains pin names only with Pin Number as headers.\n"
-            "Pin number 'alphabet (^[a-zA-Z])' and 'digits( {0,2}[0-9]{1,2},?$)' are orthogonal headers. Sometimes they are not present in the table.\n\n"
-            "- specs_table: Outlines technical specifications like voltage, current, dimensions, and operating parameters.\n\n"
-            "- package_information_table: Includes details about the physical packaging of the component like size, pin count, and form factor.\n\n"
-            "- not_a_valid_table: The content does not represent a structured table; may include random text or images.\n\n"
-            "- dimensional_table: Contains measurements, dimensions, and tolerances; essential for mechanical design.\n\n"
-            "- unknown: The content of the table is unclear, unspecified, or not sufficiently detailed to categorize accurately.\n\n"
-            "Here is the markdown content of a table:\n"
-            f"{markdown_table}\n\n"
-            "Based on the content, which category best describes this table? Provide the category name."
-            "Provide the answer in the following format:\n"
-            "json\n"
-            "{\n"
-            '  "category": "table_of_contents"\n'
-            "}\n"
-            "Acceptable values for 'category' are: table_of_contents, pin_table, pin_map, specs_table, package_information_table, not_a_valid_table, dimensional_table, unknown."
-        )
+        intro = """
+        Analyze the following markdown table extracted from a technical datasheet of electronic components:\n\n
+        {markdown_table}\n\n
+        Classify the table into one of the following categories based on its content and structure:\n\n
+        """
+
+        # Section 2: Common Table Types
+        common_tables = """
+        - **table_of_contents:** Lists sections and their page numbers within the datasheet (non-technical).\n
+        * Look for headings, subheadings, numbers, and page references.\n\n
+        
+        - **pin_table:**  Details pin numbers, functions, and descriptions (crucial for hardware design).\n
+        * May contain terms like 'Pin,' 'Terminal,' 'Signal,' or 'Ball.'\n
+        * Pin numbers often follow this pattern: '^[a-zA-Z]{0,2}[0-9]{1,2},?$'\n\n
+        * *Example of pin tables:*
+        
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+        |:-----------|:----------------|:----------------|:----------------|:---------------------|:--------------|:---------------------------|
+        | PIN NUMBER | SIGNAL NAME (1) | SIGNAL TYPE (2) | BUFFER TYPE (3) | PIN MUX ENCODING (4) | POWER SOURCE5 | STATE AFTER RESET RELEASE6 |
+        | | PG5 | I/O | LVCMOS | - | | OFF |
+        | | EN0TXD1 | O | LVCMOS | PG5 (14) | | N/A |
+        | K15 | 12C3SDA | I/O | LVCMOS | PG5 (2) | | N/A |
+
+        | 0 | 1 | 2 | 3 |
+        |:------|:----|:----|:--------------------------------|
+        | PIN | | I/O | DESCRIPTION |
+        | NAME | NO. | | |
+        | +IN A | 3 | I | Noninverting input, channel A |
+        
+        - **pin_map:**  Visual representation of pin layout (often a diagram).\n
+        * Primarily contains pin names and numbers as headers.\n
+        * Letters and numbers in headers may be orthogonal (independent).\n\n
+        * *Example of pin maps:*
+        | 1  | 2        | 3         | 4         | 5   | 6       | 7   |
+        |----|----------|-----------|-----------|-----|---------|-----|
+        |DVDD| DVDD_SD  | LDOCAP_DGP| VODA_DSPFL| CVDD| VSS     |CVDD |
+        | VSS| CVDD_DSP | LDOCAP_JC | LDOCAP_VSS|     | CVDD_HM |     |
+        |    | DVDD     | VSS       | CVDD_DSP  |     | CVDD_HM |     |
+        | VSS| CVDD_DSP | CVDD_DSP  | CVDD_DSP  |     |         |     |
+        |    | DVDD     |           |           |     |         |     |
+        | ...| ...      | ...       | ...       | ... | ...     | ... |
+
+        
+        - **electrical_specifications_table:** Key technical parameters (voltage, current, etc.).\n
+        * Focus on electrical characteristics and operating conditions.\n
+        * Typically includes parameters, test conditions, min/typ/max values, and units.
+        * *Example of electrical specifications tables:*
+
+        | 0 | 1 | 2 | 3 | 4 |
+        |:-----------|:----------|:--------------------|:-----------------|:--------|
+        | | PARAMETER | TEST CONDITIONS | MIN TYP MAX | UNIT |
+        | OFFSET | VOLTAGE | | | |
+        | Vos | Input offset voltage | Vs=5 V | +0.33 +1.6 | mV |
+        | | | Vs = 5 V, TA = -40°C to +125°C | +2 | |
+        | dVos/dT | Drift | Vs = 5 V, TA = -40°C to +125°C | +0.5 | uV/°C |
+        | PSRR | Power-supply rejection ratio | Vs = 1.8 V - 5.5 VCM = (V-) | +13 +80 | uV/V |
+        | ... | ... | ... | ... | ... |
+
+        - **package_information_table:** Physical packaging details (size, pin count, form factor).\n\n
+        * Contains dimensions, materials, and other physical characteristics.\n
+        * *Example of package information table:*
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+        |:----------------|:-------------|:----------------|:-----|:-----|:------------|:-----------|:------------|
+        | Device | Package Type | Package Drawing | Pins | SPQ | Length (mm) | Width (mm) | Height (mm) |
+        | LM124DR | SOIC | D | 14 | 2500 | 350.0 | 350.0 | 43.0 |
+        | ... | ... | ... | ... | ... | ... | ... | ... |
+
+        - **dimensional_table:** Measurements, dimensions, and tolerances (for mechanical design).\n\n
+        """
+
+        # Section 3: Other (non-standard) Tables
+        other_tables = """
+        - **other:**  Tables not fitting the common categories.  This can include:
+        * Register tables listing addresses, names, values
+        * Bit address mapping tables
+        * Address lookup tables
+        * Interrupt tables
+        * Timing diagrams
+        * Control registers
+        * Status registers
+        * Revision tables
+        * Any table with unclear content or purpose\n\n
+        
+        * *Examples of 'other' tables:**
+
+        | 0 | 1 | 2 |
+        |:----------------|:------------|:-------------------|
+        | REGISTER NUMBER | RESET VALUE | REGISTER NAME |
+        | 19 | 11101111 | 8 LSBs of d1 coefficient for DRC first-order high-pass filter |
+        | 20 | 0000 0000 | 8 MSBs of n0 coefficient for DRC first-order low-pass filter |
+        | 21 | 0001 0001 | 8 LSBs of n0 coefficient for DRC first-order low-pass filter |
+        | ... | ... | ... |
 
 
+        | 0 | 1 | 2 |
+        |:-------------|:---------|:-----------------|
+        | HEX ADDRESS | ACRONYM | REGISTER NAME |
+        | 0x4808 0000 | ELM_REVISION | Revision |
+        | 0x4808 0010 | ELM_SYSCONFIG | Configuration |
+        | 0x4808 0014 | ELM_SYSSTATUS | Status |
+        | ... | ... | ... |
 
+
+        | 0 | 1 | 2 | 3 |
+        |:------|:----------|:---------|:----------|
+        | BIT | READ/ WRITE | RESET VALUE | DESCRIPTION |
+        | D7 | R/W | 1 | 0: ADC channel not muted 1: ADC channel muted |
+        | ... | ... | ... | ... |
+
+        """
+
+        not_a_table = """
+        - **not_a_valid_table:**  The content is not a table or does not fit any of the above categories.\n
+        * This can include images, diagrams, text, or any other non-tabular content.\n\n
+        * **Example:**
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+        |:----|:---------|:----|:----|:----|:----|:----|:----|:----|:----|:-----|:-----|:-----|:-----|
+        | | X + + A | | | | | | | | | | | | |
+        | | X+ B | | | | | | | | | | | | |
+        | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+        |:-----|:-----|:-----|:----|:-------|:-------|:-----|
+        | 1,1 | 2, 1 | 3, 1 | | P-2, 1 | P-1, 1 | P, 1 |
+        | 1,2 | 2, 2 | | | | P-1, 2 | P, 2 |
+        """
+
+        # Section 4: Response Instructions
+        response_format = """
+
+        Respond with the most appropriate category in JSON format:\n\n
+        {\n
+        "category": "your_category_here"\n  
+        }\n\n
+        Ensure the 'category' value matches one of the listed options.
+        """
+
+        return intro + common_tables + other_tables + not_a_table + response_format.format(markdown_table=markdown_table) 
+
+    
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
