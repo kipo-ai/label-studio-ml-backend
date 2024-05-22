@@ -214,7 +214,6 @@ class NewModel(LabelStudioMLBase):
                 model=GPT3,
             )
 
-            breakpoint()
             if response["category"] not in [cat.value for cat in TableCategory]:
                 continue
             else:
