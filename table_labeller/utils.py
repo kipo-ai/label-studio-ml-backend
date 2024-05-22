@@ -55,8 +55,7 @@ def request_interactive_annotation(api_url, backend_id, token, task_id, context=
 
 def get_results_from_local(url, task):
 
-    m = TableModel()
-    
+    m = TableModel()    
     respose = m.predict([task])
 
     return respose
@@ -101,7 +100,7 @@ def get_json_from_label_studio(url, token):
     return None
 
 
-backend_id = 22
+backend_id = 23
 token = "dcb2623d0c78e5be334a2e72bddc3abb918a37f9"
 api_url = "https://labelstudio.kipo.ai/api/ml"
 task_list_url = f"https://labelstudio.kipo.ai/api/projects/{backend_id}/export?exportType=JSON&download_all_tasks=true"

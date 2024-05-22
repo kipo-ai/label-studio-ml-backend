@@ -175,9 +175,7 @@ class NewModel(LabelStudioMLBase):
         response_format = """
 
         Respond with the most appropriate category in JSON format:\n\n
-        {\n
         "category": "your_category_here"\n  
-        }\n\n
         Ensure the 'category' value matches one of the listed options.
         """
 
@@ -216,6 +214,7 @@ class NewModel(LabelStudioMLBase):
                 model=GPT3,
             )
 
+            breakpoint()
             if response["category"] not in [cat.value for cat in TableCategory]:
                 continue
             else:
